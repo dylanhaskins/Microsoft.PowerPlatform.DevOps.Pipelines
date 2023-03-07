@@ -156,13 +156,13 @@ stages:
                 $node = $xml.SelectSingleNode("//Version")
                 $theVersion = [version]$node.'#text'
                 $newVersion = "{0}.{1}{2}.{3}.{4}" -f $theVersion.Major, (Get-Date -UFormat %y), (Get-Date -UFormat %j).PadLeft(3, '0'), $theVersion.Build , (Get-Date -UFormat %H%M)
-                $node.value = $newVersion.ToString()
+                $node.'#text' = $newVersion
                 Write-Host $node
-                #$xml.Save($(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\src\Other\Solution.xml)
-                #$versionsFile = Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version -ErrorAction SilentlyContinue | ConvertFrom-Json
-                #$versionsFile = @($versionsFile[0])  
-                #$solutionTracker = @([ordered]@{SolutionName = ${{parameters.SolutionName}}; Version = $newVersion.ToString() ; })
-                #ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-File $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
+                $xml.Save("$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\src\Other\Solution.xml")
+                $versionsFile = Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version -ErrorAction SilentlyContinue | ConvertFrom-Json
+                $versionsFile = @($versionsFile[0])  
+                $solutionTracker = @([ordered]@{SolutionName = ${{parameters.SolutionName}}; Version = $newVersion.ToString() ; })
+                ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-File $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
 
                 # Move items from SolutionPackage/Solution folder to SolutionPackage
                 Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
