@@ -23,10 +23,10 @@ variables:
   - group: ppdo-variables
 
 stages:
-- stage: export_solution_to_git
-  displayName: 'Export solution to git' 
+- stage: export_unpack_solution_to_git
+  displayName: 'Export & Unpack solution to git' 
   jobs:
-  - job: export_solution_to_git
+  - job: export_unpack_solution_to_git
 
     pool:
       vmImage: 'windows-latest'
