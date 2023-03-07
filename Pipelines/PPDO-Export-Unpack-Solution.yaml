@@ -219,8 +219,10 @@ stages:
                 $solutionTracker = @([ordered]@{SolutionName = "${{parameters.SolutionName}}"; Version = "$newVersion" ; })
                 ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-File $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
 
-                pac solution online-version --solution-name ${{parameters.SolutionName}} --solution-version $newVersion
-                
+                $versionCommand = "solution online-version --solution-name ${{parameters.SolutionName}} --solution-version $newVersion"
+                Write-Host "Updating Solution Version - $versionCommand"
+                Invoke-Expression -Command "$pacexepath $versionCommand"
+
                 # Move items from SolutionPackage/Solution folder to SolutionPackage
                 Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
                 Get-ChildItem -Path "$unpackfolderpath\${{parameters.SolutionName}}\src" | Copy-Item -Destination "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\dataverse_${{parameters.SolutionName}}" -Recurse -Container -Force
