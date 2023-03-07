@@ -1,0 +1,180 @@
+parameters:
+- name: Branch
+  type: string
+- name: BranchToCreate
+  type: string
+  default: "Commit to existing branch specified in Branch parameter"
+- name: SolutionName
+  type: string
+- name: Project
+  type: string
+- name: Repo
+  type: string
+
+name: export-${{parameters.SolutionName}}-to-git-branch
+
+pool:
+  vmImage: 'windows-latest'
+
+trigger: none
+pr: none
+
+variables:
+  - group: ppdo-variables
+
+stages:
+- stage: export_solution_to_git
+  displayName: 'Export solution to git' 
+  jobs:
+  - job: export_solution_to_git
+
+    pool:
+      vmImage: 'windows-latest'
+
+    steps:
+    
+    - task: PowerShell@2
+      displayName: Powershell - set WindowsPowerShell directory
+      inputs:
+        targetType: 'inline'
+        script: |
+          mkdir '$(UserProfile)\Documents\WindowsPowerShell'
+
+    - task: Cache@2
+      displayName: Cache Tooling components
+      inputs:
+        key: ppdo | $(Agent.OS)  
+        path: $(UserProfile)\Documents\WindowsPowerShell\
+        cacheHitVar: ToolingCached
+
+    - task: PowerShell@2
+      displayName: 'Install Microsoft.PowerPlatform.DevOps'
+      inputs:
+        targetType: 'inline'
+        script: |
+          # Install-Module -Name Microsoft.PowerPlatform.DevOps -AllowClobber -AllowPrerelease -Scope CurrentUser -Force    
+
+    - pwsh: |
+        # Workaround for git Filename too long issue 
+        git config --system core.longpaths true        
+      displayName: "Configuring core.longpaths true"
+
+    - task: PowerShell@2
+      displayName: Install PAC Tools
+      inputs:
+        targetType: 'inline'
+        script: |
+          if (!(Test-Path "$env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools")) {
+            Write-Host "Downloading Power Platform CLI..."
+            New-Item -Path "$env:APPDATA\Microsoft.PowerPlatform.Devops\PACTools" -ItemType Directory
+            $sourceNugetExe = "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe"
+            $targetNugetExe = ".\nuget.exe"
+            Remove-Item .\Tools -Force -Recurse -ErrorAction Ignore
+            Invoke-WebRequest $sourceNugetExe -OutFile $targetNugetExe
+            Set-Alias nuget $targetNugetExe -Scope Global 
+            ##
+            ##Download Power Platform CLI
+            ##
+            Write-host "Nuget Sources"
+            if (-not $(Get-PackageSource -ProviderName NuGet -ErrorAction Ignore)) { 
+              ./nuget sources Add -Name "nuget live" -Source "https://api.nuget.org/v3/index.json"
+            }
+            nuget sources
+            nuget install Microsoft.PowerApps.CLI -O .\PAC
+            $toolsFolder = (Get-ChildItem -Filter tools -Recurse -Path .\PAC).FullName
+            Move-Item -Path $toolsFolder -Destination $env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools -Force -ErrorAction SilentlyContinue
+            Remove-Item .\PAC -Force -Recurse -ErrorAction Ignore
+          }
+          else {
+            Write-Host "PACTools already downloaded"
+          }
+   
+    # Checkout our Branch
+    - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
+      displayName: 'Checkout Source Branch'
+      
+    # Configure email/name and checkout git branch
+    #"${{parameters.email}}"
+    #"${{parameters.userName}}"
+    - script: |
+        git config user.email "dylan@haskins.co.nz"        
+        git config user.name "Dylan Haskins"
+        git checkout origin/${{parameters.Branch}} --track
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: 'Initialize Git'      
+    
+    # If the BranchToCreate variable *does not* contain an empty string, then
+    # create a branch based on BranchToCreate variable value and checkout that branch.
+    - script: |
+        git checkout -b "${{parameters.BranchToCreate}}"
+      displayName: 'Create New Git Branch: ${{parameters.BranchToCreate}}'
+      workingDirectory: $(Build.SourcesDirectory)
+      condition: and(succeeded(), ne('${{parameters.BranchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is passed for the BranchToCreate variable, then skip this task
+
+    - task: PowerShell@2
+      displayName: Create PAC Auth
+      inputs:
+        targetType: 'inline'
+        script: |
+          $configFile = Get-Content $(Build.SourcesDirectory)\${{parameters.SolutionName}}\Scripts\Config.json | ConvertFrom-Json
+          & $env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools\tools\pac.exe auth create --name ${{parameters.SolutionName}} --url $configFile.target.ServerUrl --tenant $(TenantId) --applicationId $(ClientID) --clientSecret $(ClientSecret)
+        
+    - task: PowerShell@2
+      displayName: PAC Clone Solution
+      inputs:
+        targetType: 'inline'
+        script: |
+          $pacexepath = "$env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools\tools\pac.exe"
+          $unpackfolderpath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}"
+          if(Test-Path "$pacexepath")
+          {
+            # Trigger Clone or Sync
+            $cdsProjPath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\${{parameters.SolutionName}}.cdsproj"
+            $cdsProjFolderPath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}"
+            # If .cds project file exists (i.e., Clone performed already) trigger Sync
+            if(Test-Path "$cdsProjPath")
+            {
+              Write-Host "Cloned solution available; Triggering Solution Sync"
+              $cdsProjfolderPath = [System.IO.Path]::GetDirectoryName("$cdsProjPath")
+              Write-Host "Pointing to cdsproj folder path - " $cdsProjfolderPath
+              Set-Location -Path $cdsProjfolderPath
+              $syncCommand = "solution sync --processCanvasApps true --packagetype Both --async"
+              Write-Host "Triggering Sync - $syncCommand"
+              Invoke-Expression -Command "$pacexepath $syncCommand"
+            }
+            else 
+            {
+               # Trigger Clone
+               $cloneCommand = "solution clone -n ${{parameters.SolutionName}} --processCanvasApps true --outputDirectory ""$unpackfolderpath"" --packagetype Both --async"
+               Write-Host "Clone Command - $pacexepath $cloneCommand"
+               Invoke-Expression -Command "$pacexepath $cloneCommand"
+            }
+            # Move items from SolutionPackage/Solution folder to SolutionPackage
+            Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
+            Get-ChildItem -Path "$unpackfolderpath\${{parameters.SolutionName}}\src" | Copy-Item -Destination "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\dataverse_${{parameters.SolutionName}}" -Recurse -Container -Force
+          }
+
+    - pwsh: |
+        # Workaround for git Filename too long issue 
+        git config --system core.longpaths true
+        git add --all
+      workingDirectory: $(Build.SourcesDirectory)
+      displayName: 'Add Changes to Git Branch'
+
+    # Commit all changes to Git branch. If there are no changes we want to warn the user that there was nothing to commit. As this could mean there was a user error involved.
+    - pwsh: |
+        $gitStatus = iex "git status --porcelain"
+        if ($gitStatus) {
+           git commit -m "A Commit Message goes here"
+           git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin "${{parameters.BranchToCreate}}"
+        }
+        else {
+           Write-Host "##vso[task.logissue type=warning]There is nothing to commit. No changes have been made since the previous commit. If this is unexpected make sure your changes have been published before committing again."
+           echo '##vso[task.setvariable variable=nothing2Commit;isOutput=true]"NoCommit"'
+           exit 1;
+        }
+      workingDirectory:  $(Build.SourcesDirectory)
+      displayName: 'Commit Changes to Git Branch'
+      name: CommitStatus
+      continueOnError: true
+
