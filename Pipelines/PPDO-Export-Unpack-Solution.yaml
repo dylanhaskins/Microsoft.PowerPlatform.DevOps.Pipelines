@@ -149,9 +149,18 @@ stages:
                Write-Host "Clone Command - $pacexepath $cloneCommand"
                Invoke-Expression -Command "$pacexepath $cloneCommand"
             }
-            # Move items from SolutionPackage/Solution folder to SolutionPackage
-            Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
-            Get-ChildItem -Path "$unpackfolderpath\${{parameters.SolutionName}}\src" | Copy-Item -Destination "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\dataverse_${{parameters.SolutionName}}" -Recurse -Container -Force
+
+            $gitStatus = iex "git status --porcelain"
+            if ($gitStatus) {
+                $versionsFile = Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version -ErrorAction SilentlyContinue | ConvertFrom-Json
+                $versionsFile = @($versionsFile[0])  
+                Write-Host @versionsFile
+
+                # Move items from SolutionPackage/Solution folder to SolutionPackage
+                Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
+                Get-ChildItem -Path "$unpackfolderpath\${{parameters.SolutionName}}\src" | Copy-Item -Destination "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\dataverse_${{parameters.SolutionName}}" -Recurse -Container -Force
+
+            }
           }
 
     - pwsh: |
