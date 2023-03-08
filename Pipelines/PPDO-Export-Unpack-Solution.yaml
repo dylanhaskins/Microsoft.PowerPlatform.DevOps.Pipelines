@@ -179,6 +179,54 @@ stages:
               return $result -Join [Environment]::NewLine
           }
 
+          function Out-FileUtf8NoBom {
+            [CmdletBinding(PositionalBinding=$false)]
+            param(
+              [Parameter(Mandatory, Position = 0)] [string] $LiteralPath,
+              [switch] $Append,
+              [switch] $NoClobber,
+              [AllowNull()] [int] $Width,
+              [switch] $UseLF,
+              [Parameter(ValueFromPipeline)] $InputObject
+            )
+  
+            begin {
+              $dir = Split-Path -LiteralPath $LiteralPath
+              if ($dir) { $dir = Convert-Path -ErrorAction Stop -LiteralPath $dir } else { $dir = $pwd.ProviderPath }
+              $LiteralPath = [IO.Path]::Combine($dir, [IO.Path]::GetFileName($LiteralPath))
+              if ($NoClobber -and (Test-Path $LiteralPath)) {
+                Throw [IO.IOException] "The file '$LiteralPath' already exists."
+              }
+              $sw = New-Object System.IO.StreamWriter $LiteralPath, $Append
+      
+              $htOutStringArgs = @{}
+              if ($Width) { $htOutStringArgs += @{ Width = $Width } }
+  
+              try { 
+                $scriptCmd = { 
+                  & Microsoft.PowerShell.Utility\Out-String -Stream @htOutStringArgs | 
+                    . { process { if ($UseLF) { $sw.Write(($_ + "`n")) } else { $sw.WriteLine($_) } } }
+                }  
+        
+                $steppablePipeline = $scriptCmd.GetSteppablePipeline($myInvocation.CommandOrigin)
+                $steppablePipeline.Begin($PSCmdlet)
+              }
+              catch { throw }
+  
+            }
+  
+            process
+            {
+              $steppablePipeline.Process($_)
+            }
+  
+            end {
+              $steppablePipeline.End()
+              $sw.Dispose()
+            }
+  
+          }
+
           $pacexepath = "$env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools\tools\pac.exe"
           $unpackfolderpath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}"
           if(Test-Path "$pacexepath")
@@ -231,7 +279,7 @@ stages:
                 $versionsFile = Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version -ErrorAction SilentlyContinue | ConvertFrom-Json
                 $versionsFile = @($versionsFile[0])  
                 $solutionTracker = @([ordered]@{SolutionName = "${{parameters.SolutionName}}"; Version = "$newVersion" ; })
-                ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-File $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
+                ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-FileUtf8NoBom $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
 
                 # Move items from SolutionPackage/Solution folder to SolutionPackage
                 Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
