@@ -218,6 +218,8 @@ stages:
                 Write-Host "Updating Solution Version - $versionCommand"
                 Invoke-Expression -Command "$pacexepath $versionCommand"
 
+                Set-Location -Path $cdsProjfolderPath
+
                 $syncCommand = "solution sync --processCanvasApps true --packagetype Both --async"
                 Write-Host "Triggering Sync - $syncCommand"
                 Invoke-Expression -Command "$pacexepath $syncCommand"
