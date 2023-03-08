@@ -218,6 +218,9 @@ stages:
                 Write-Host "Updating Solution Version - $versionCommand"
                 Invoke-Expression -Command "$pacexepath $versionCommand"
 
+                Write-Host "Cloned solution available; Triggering Solution Sync"
+                $cdsProjfolderPath = [System.IO.Path]::GetDirectoryName("$cdsProjPath")
+                Write-Host "Pointing to cdsproj folder path - " $cdsProjfolderPath
                 Set-Location -Path $cdsProjfolderPath
 
                 $syncCommand = "solution sync --processCanvasApps true --packagetype Both --async"
