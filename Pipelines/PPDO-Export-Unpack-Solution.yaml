@@ -86,6 +86,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
+          Import-Module Microsoft.PowerPlatform.DevOps
           Export-Solution -StartPath "$(Build.SourcesDirectory)" -SelectedSolution "${{parameters.SolutionName}}" -UserName $(ClientID) -Password $(ClientSecret) -TenantId $(TenantId)  -UseClientSecret $true
 
     - pwsh: |
