@@ -53,6 +53,11 @@ stages:
         targetType: 'inline'
         script: |
           Install-Module -Name Microsoft.PowerPlatform.DevOps -AllowClobber -AllowPrerelease -Scope CurrentUser -Force    
+
+    - pwsh: |
+        # Workaround for git Filename too long issue 
+        git config --system core.longpaths true        
+      displayName: "Configuring core.longpaths true"
    
     # Checkout our Branch
     - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
