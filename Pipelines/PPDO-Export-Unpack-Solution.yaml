@@ -101,7 +101,7 @@ stages:
         $gitStatus = iex "git status --porcelain"
         if ($gitStatus) {
            git commit -m "A Commit Message goes here"
-           git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin "${{parameters.BranchToCreate}}"
+           git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin "${{parameters.BranchToCreate}}" --tags
         }
         else {
            Write-Host "##vso[task.logissue type=warning]There is nothing to commit. No changes have been made since the previous commit. If this is unexpected make sure your changes have been published before committing again."
