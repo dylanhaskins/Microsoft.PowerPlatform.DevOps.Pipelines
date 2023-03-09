@@ -52,42 +52,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          # Install-Module -Name Microsoft.PowerPlatform.DevOps -AllowClobber -AllowPrerelease -Scope CurrentUser -Force    
-
-    - pwsh: |
-        # Workaround for git Filename too long issue 
-        git config --system core.longpaths true        
-      displayName: "Configuring core.longpaths true"
-
-    - task: PowerShell@2
-      displayName: Install PAC Tools
-      inputs:
-        targetType: 'inline'
-        script: |
-          if (!(Test-Path "$env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools")) {
-            Write-Host "Downloading Power Platform CLI..."
-            New-Item -Path "$env:APPDATA\Microsoft.PowerPlatform.Devops\PACTools" -ItemType Directory
-            $sourceNugetExe = "https://dist.nuget.org/win-x86-commandline/latest/nuget.exe"
-            $targetNugetExe = ".\nuget.exe"
-            Remove-Item .\Tools -Force -Recurse -ErrorAction Ignore
-            Invoke-WebRequest $sourceNugetExe -OutFile $targetNugetExe
-            Set-Alias nuget $targetNugetExe -Scope Global 
-            ##
-            ##Download Power Platform CLI
-            ##
-            Write-host "Nuget Sources"
-            if (-not $(Get-PackageSource -ProviderName NuGet -ErrorAction Ignore)) { 
-              ./nuget sources Add -Name "nuget live" -Source "https://api.nuget.org/v3/index.json"
-            }
-            nuget sources
-            nuget install Microsoft.PowerApps.CLI -O .\PAC
-            $toolsFolder = (Get-ChildItem -Filter tools -Recurse -Path .\PAC).FullName
-            Move-Item -Path $toolsFolder -Destination $env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools -Force -ErrorAction SilentlyContinue
-            Remove-Item .\PAC -Force -Recurse -ErrorAction Ignore
-          }
-          else {
-            Write-Host "PACTools already downloaded"
-          }
+          Install-Module -Name Microsoft.PowerPlatform.DevOps -AllowClobber -AllowPrerelease -Scope CurrentUser -Force    
    
     # Checkout our Branch
     - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
@@ -112,181 +77,11 @@ stages:
       condition: and(succeeded(), ne('${{parameters.BranchToCreate}}', 'Commit to existing branch specified in Branch parameter')) # If an empty value is passed for the BranchToCreate variable, then skip this task
 
     - task: PowerShell@2
-      displayName: Create PAC Auth
+      displayName: Export Solution
       inputs:
         targetType: 'inline'
         script: |
-          $configFile = Get-Content $(Build.SourcesDirectory)\${{parameters.SolutionName}}\Scripts\Config.json | ConvertFrom-Json
-          & $env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools\tools\pac.exe auth create --name ${{parameters.SolutionName}} --url $configFile.target.ServerUrl --tenant $(TenantId) --applicationId $(ClientID) --clientSecret $(ClientSecret)
-        
-    - task: PowerShell@2
-      displayName: PAC Clone Solution
-      inputs:
-        targetType: 'inline'
-        script: |
-          function Format-Json {
-
-              [CmdletBinding(DefaultParameterSetName = 'Prettify')]
-              Param(
-                  [Parameter(Mandatory = $true, Position = 0, ValueFromPipeline = $true)]
-                  [string]$Json,
-
-                  [Parameter(ParameterSetName = 'Minify')]
-                  [switch]$Minify,
-
-                  [Parameter(ParameterSetName = 'Prettify')]
-                  [ValidateRange(1, 1024)]
-                  [int]$Indentation = 4,
-
-                  [Parameter(ParameterSetName = 'Prettify')]
-                  [switch]$AsArray
-              )
-
-              if ($PSCmdlet.ParameterSetName -eq 'Minify') {
-                  return ($Json | ConvertFrom-Json) | ConvertTo-Json -Depth 100 -Compress
-              }
-
-              # If the input JSON text has been created with ConvertTo-Json -Compress
-              # then we first need to reconvert it without compression
-              if ($Json -notmatch '\r?\n') {
-                  $Json = ($Json | ConvertFrom-Json) | ConvertTo-Json -Depth 100
-              }
-
-              $indent = 0
-              $regexUnlessQuoted = '(?=([^"]*"[^"]*")*[^"]*$)'
-
-              $result = $Json -split '\r?\n' |
-              ForEach-Object {
-                  # If the line contains a ] or } character, 
-                  # we need to decrement the indentation level unless it is inside quotes.
-                  if ($_ -match "[}\]]$regexUnlessQuoted") {
-                      $indent = [Math]::Max($indent - $Indentation, 0)
-                  }
-
-                  # Replace all colon-space combinations by ": " unless it is inside quotes.
-                  $line = (' ' * $indent) + ($_.TrimStart() -replace ":\s+$regexUnlessQuoted", ': ')
-
-                  # If the line contains a [ or { character, 
-                  # we need to increment the indentation level unless it is inside quotes.
-                  if ($_ -match "[\{\[]$regexUnlessQuoted") {
-                      $indent += $Indentation
-                  }
-
-                  $line
-              }
-
-              if ($AsArray) { return $result }
-              return $result -Join [Environment]::NewLine
-          }
-
-          function Out-FileUtf8NoBom {
-            [CmdletBinding(PositionalBinding=$false)]
-            param(
-              [Parameter(Mandatory, Position = 0)] [string] $LiteralPath,
-              [switch] $Append,
-              [switch] $NoClobber,
-              [AllowNull()] [int] $Width,
-              [switch] $UseLF,
-              [Parameter(ValueFromPipeline)] $InputObject
-            )
-  
-            begin {
-              $dir = Split-Path -LiteralPath $LiteralPath
-              if ($dir) { $dir = Convert-Path -ErrorAction Stop -LiteralPath $dir } else { $dir = $pwd.ProviderPath }
-              $LiteralPath = [IO.Path]::Combine($dir, [IO.Path]::GetFileName($LiteralPath))
-              if ($NoClobber -and (Test-Path $LiteralPath)) {
-                Throw [IO.IOException] "The file '$LiteralPath' already exists."
-              }
-              $sw = New-Object System.IO.StreamWriter $LiteralPath, $Append
-      
-              $htOutStringArgs = @{}
-              if ($Width) { $htOutStringArgs += @{ Width = $Width } }
-  
-              try { 
-                $scriptCmd = { 
-                  & Microsoft.PowerShell.Utility\Out-String -Stream @htOutStringArgs | 
-                    . { process { if ($UseLF) { $sw.Write(($_ + "`n")) } else { $sw.WriteLine($_) } } }
-                }  
-        
-                $steppablePipeline = $scriptCmd.GetSteppablePipeline($myInvocation.CommandOrigin)
-                $steppablePipeline.Begin($PSCmdlet)
-              }
-              catch { throw }
-  
-            }
-  
-            process
-            {
-              $steppablePipeline.Process($_)
-            }
-  
-            end {
-              $steppablePipeline.End()
-              $sw.Dispose()
-            }
-  
-          }
-
-          $pacexepath = "$env:APPDATA\Microsoft.PowerPlatform.DevOps\PACTools\tools\pac.exe"
-          $unpackfolderpath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}"
-          if(Test-Path "$pacexepath")
-          {
-            # Trigger Clone or Sync
-            $cdsProjPath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\${{parameters.SolutionName}}.cdsproj"
-            $cdsProjFolderPath = "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}"
-            # If .cds project file exists (i.e., Clone performed already) trigger Sync
-            if(Test-Path "$cdsProjPath")
-            {
-              Write-Host "Cloned solution available; Triggering Solution Sync"
-              $cdsProjfolderPath = [System.IO.Path]::GetDirectoryName("$cdsProjPath")
-              Write-Host "Pointing to cdsproj folder path - " $cdsProjfolderPath
-              Set-Location -Path $cdsProjfolderPath
-              $syncCommand = "solution sync --processCanvasApps true --packagetype Both --async"
-              Write-Host "Triggering Sync - $syncCommand"
-              Invoke-Expression -Command "$pacexepath $syncCommand"
-            }
-            else 
-            {
-               # Trigger Clone
-               $cloneCommand = "solution clone -n ${{parameters.SolutionName}} --processCanvasApps true --outputDirectory ""$unpackfolderpath"" --packagetype Both --async"
-               Write-Host "Clone Command - $pacexepath $cloneCommand"
-               Invoke-Expression -Command "$pacexepath $cloneCommand"
-            }
-
-            $gitStatus = iex "git status --porcelain"
-            if ($gitStatus) {
-                $xml = [xml](Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\src\Other\Solution.xml)
-                $node = $xml.SelectSingleNode("//Version")
-                $theVersion = [version]$node.'#text'
-                $newVersion = "{0}.{1}{2}.{3}.{4}" -f $theVersion.Major, (Get-Date -UFormat %y), (Get-Date -UFormat %j).PadLeft(3, '0'), $theVersion.Build , (Get-Date -UFormat %H%M)
-                $node.'#text' = $newVersion
-                Write-Host $node
-
-                $versionCommand = "solution online-version --solution-name ${{parameters.SolutionName}} --solution-version $newVersion"
-                Write-Host "Updating Solution Version - $versionCommand"
-                Invoke-Expression -Command "$pacexepath $versionCommand"
-
-                Write-Host "Cloned solution available; Triggering Solution Sync"
-                $cdsProjfolderPath = [System.IO.Path]::GetDirectoryName("$cdsProjPath")
-                Write-Host "Pointing to cdsproj folder path - " $cdsProjfolderPath
-                Set-Location -Path $cdsProjfolderPath
-
-                $syncCommand = "solution sync --processCanvasApps true --packagetype Both --async"
-                Write-Host "Triggering Sync - $syncCommand"
-                Invoke-Expression -Command "$pacexepath $syncCommand"
-
-                #$xml.Save("$(Build.SourcesDirectory)\${{parameters.SolutionName}}\pac_${{parameters.SolutionName}}\${{parameters.SolutionName}}\src\Other\Solution.xml")
-                $versionsFile = Get-Content -Path $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version -ErrorAction SilentlyContinue | ConvertFrom-Json
-                $versionsFile = @($versionsFile[0])  
-                $solutionTracker = @([ordered]@{SolutionName = "${{parameters.SolutionName}}"; Version = "$newVersion" ; })
-                ConvertTo-Json -Depth 4 $solutionTracker | Format-Json | Out-FileUtf8NoBom $(Build.SourcesDirectory)\${{parameters.SolutionName}}\${{parameters.SolutionName}}.version
-
-                # Move items from SolutionPackage/Solution folder to SolutionPackage
-                Write-Host "Copying items from  $unpackfolderpath\${{parameters.SolutionName}}\src to Legacy Folder"
-                Get-ChildItem -Path "$unpackfolderpath\${{parameters.SolutionName}}\src" | Copy-Item -Destination "$(Build.SourcesDirectory)\${{parameters.SolutionName}}\dataverse_${{parameters.SolutionName}}" -Recurse -Container -Force
-
-            }
-          }
+          Export-Solution -StartPath "$(Build.SourcesDirectory)" -SelectedSolution "${{parameters.SolutionName}}" -UserName $(ClientID) -Password $(ClientSecret) -TenantId $(TenantId)  -UseClientSecret $true
 
     - pwsh: |
         # Workaround for git Filename too long issue 
@@ -305,7 +100,6 @@ stages:
         else {
            Write-Host "##vso[task.logissue type=warning]There is nothing to commit. No changes have been made since the previous commit. If this is unexpected make sure your changes have been published before committing again."
            echo '##vso[task.setvariable variable=nothing2Commit;isOutput=true]"NoCommit"'
-           #exit 1;
         }
       workingDirectory:  $(Build.SourcesDirectory)
       displayName: 'Commit Changes to Git Branch'
