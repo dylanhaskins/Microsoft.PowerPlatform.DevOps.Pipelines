@@ -98,7 +98,7 @@ stages:
 
     # Commit all changes to Git branch. If there are no changes we want to warn the user that there was nothing to commit. As this could mean there was a user error involved.
     - pwsh: |
-        $gitStatus = iex "git status --porcelain" 
+        $gitStatus = iex "git log --branches --not --remotes" 
         if ($gitStatus) {
            git commit -m "A Commit Message goes here"
            git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin "${{parameters.BranchToCreate}}" --tags
