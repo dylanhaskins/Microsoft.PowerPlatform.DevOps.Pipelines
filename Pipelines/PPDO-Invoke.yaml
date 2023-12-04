@@ -12,10 +12,12 @@ parameters:
   type: string
 - name: CommitMessage
   type: string
+  default: ''
 - name: InvokeCommand
   type: string
 - name: Email
   type: string
+  default: ''
 - name: Project
   type: string
 - name: Repo
