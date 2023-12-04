@@ -66,7 +66,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          Install-Module -Name Microsoft.PowerPlatform.DevOpsMicrosoft.PowerPlatform.DevOps.vNext -AllowClobber -AllowPrerelease -Scope CurrentUser -Force 
+          Install-Module -Name Microsoft.PowerPlatform.DevOps.vNext -AllowClobber -AllowPrerelease -Scope CurrentUser -Force 
 
     - pwsh: |
         # Workaround for git Filename too long issue 
