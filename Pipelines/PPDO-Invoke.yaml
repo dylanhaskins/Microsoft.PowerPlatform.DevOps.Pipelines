@@ -80,6 +80,7 @@ stages:
     
     # Checkout our Branch
     - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
+      path: 'Source'
       displayName: 'Checkout Source Branch'
 
     - task: PowerShell@2
