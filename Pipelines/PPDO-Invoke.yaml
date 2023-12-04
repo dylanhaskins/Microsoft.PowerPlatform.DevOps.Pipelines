@@ -10,14 +10,16 @@
 parameters:
 - name: Branch
   type: string
+  default: 'main'
 - name: CommitMessage
   type: string
-  default: ''
+  default: 'default'
 - name: InvokeCommand
   type: string
+  default: 'ppdo'
 - name: Email
   type: string
-  default: ''
+  default: 'default'
 - name: Project
   type: string
 - name: Repo
