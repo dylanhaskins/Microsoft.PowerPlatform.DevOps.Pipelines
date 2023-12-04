@@ -47,6 +47,27 @@ stages:
       ${{ if and(ne(parameters.VMImage, 'NA'), ne(parameters.VMImage, '')) }}:
         vmImage: ${{parameters.VMImage}}
     steps:
+    - task: PowerShell@2
+      displayName: Powershell - set WindowsPowerShell directory
+      inputs:
+        targetType: 'inline'
+        script: |
+          mkdir '$(UserProfile)\Documents\WindowsPowerShell'
+
+    - task: Cache@2
+      displayName: Cache Tooling components
+      inputs:
+        key: ppdo_cloud | $(Agent.OS)  
+        path: $(UserProfile)\Documents\WindowsPowerShell\
+        cacheHitVar: ToolingCached
+
+    - task: PowerShell@2
+      displayName: 'Install Microsoft.PowerPlatform.DevOps'
+      inputs:
+        targetType: 'inline'
+        script: |
+          Install-Module -Name Microsoft.PowerPlatform.DevOpsMicrosoft.PowerPlatform.DevOps.vNext -AllowClobber -AllowPrerelease -Scope CurrentUser -Force 
+
     - pwsh: |
         # Workaround for git Filename too long issue 
         git config --system core.longpaths true        
