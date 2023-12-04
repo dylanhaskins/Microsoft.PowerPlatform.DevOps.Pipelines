@@ -1,0 +1,63 @@
+# This pipeline gets triggered manually or via an API call.  
+# It is a general purpose automation that allows you to invoke a PPDO Command
+
+# The following variables need to be set when the pipeline is queued to run:
+# Project: The name of the Azure DevOps Project to which we are exporting our solution.
+# Repo: The name of the Azure DevOps Repo to which we are exporting our solution.
+# Branch: The name of the Azure DevOps Branch in the Repo above to which we are exporting our solution.
+# CommitMessage: The commit message for this commit.
+# Email: The email of the user performing the commit.
+parameters:
+- name: Branch
+  type: string
+  default: 'main'
+- name: CommitMessage
+  type: string
+  default: 'default'
+- name: InvokeCommand
+  type: string
+  default: 'ppdo'
+- name: Email
+  type: string
+  default: 'default'
+- name: Project
+  type: string
+- name: Repo
+  type: string
+- name: AgentPool
+  type: string
+  default: "Azure Pipelines"
+- name: VMImage
+  type: string
+  default: "windows-latest"
+trigger: none
+pr: none
+
+name: ppdo-${{parameters.InvokeCommand}}-execute-command
+
+stages:
+- stage: invoke_command
+  displayName: 'Invoke a PPDO Command' 
+  jobs:
+  - job: invoke_command
+
+    pool:
+      ${{ if and(ne(parameters.AgentPool, 'NA'), ne(parameters.AgentPool, '')) }}:
+        name: ${{parameters.AgentPool}}
+      ${{ if and(ne(parameters.VMImage, 'NA'), ne(parameters.VMImage, '')) }}:
+        vmImage: ${{parameters.VMImage}}
+    steps:
+    - pwsh: |
+        # Workaround for git Filename too long issue 
+        git config --system core.longpaths true        
+      displayName: "Configuring core.longpaths true"
+
+    # Checkout Pipelines
+    - checkout: self
+      path: 'PipelineUtils'
+      displayName: 'Checkout Pipeline Branch'
+    
+    # Checkout our Branch
+    - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
+      displayName: 'Checkout Source Branch'
+  
