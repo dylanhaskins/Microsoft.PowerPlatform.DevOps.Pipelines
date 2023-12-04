@@ -71,7 +71,7 @@ stages:
     - pwsh: |
         # Workaround for git Filename too long issue 
         git config --system core.longpaths true        
-      displayName: "Configuring core.longpaths true"
+      displayName: "Configuring core.longpaths true"     
 
     # Checkout Pipelines
     - checkout: self
@@ -81,4 +81,12 @@ stages:
     # Checkout our Branch
     - checkout: git://${{parameters.Project}}/${{parameters.Repo}}@${{parameters.Branch}}
       displayName: 'Checkout Source Branch'
+
+    - task: PowerShell@2
+      displayName: 'Execute PPDO Command'
+      inputs:
+        targetType: 'inline'
+        script: |
+          {parameters.InvokeCommand} 
+
   
