@@ -88,6 +88,6 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          ${{parameters.InvokeCommand}}
+          ${{parameters.InvokeCommand}} -Email ${{parameters.Email}} 
 
   
