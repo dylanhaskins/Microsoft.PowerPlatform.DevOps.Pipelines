@@ -94,8 +94,12 @@ stages:
         targetType: 'inline'
         script: |
           Set-Location -Path '..\Source'
-          git checkout origin/${{parameters.Branch}} --track          
-          git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"     
-          ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
+          git checkout origin/${{parameters.Branch}} --track            
+          ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}}
+          git add --all
+          $gitStatus = iex "git status --porcelain" 
+          if ($gitStatus) {
+            git commit -m "${{parameters.CommitMessage}}"
+            git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)" push origin "${{parameters.Branch}}" 
 
   
