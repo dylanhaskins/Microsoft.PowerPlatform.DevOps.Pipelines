@@ -75,8 +75,7 @@ stages:
         # Workaround for git Filename too long issue 
         git config --system core.longpaths true  
         git config --global user.email '${{parameters.Email}}'
-        git config --global user.name '${{parameters.UserName}}'   
-        git checkout origin/${{parameters.Branch}} --track   
+        git config --global user.name '${{parameters.UserName}}'    
       displayName: "Configuring core.longpaths true"     
 
     # Checkout Pipelines
