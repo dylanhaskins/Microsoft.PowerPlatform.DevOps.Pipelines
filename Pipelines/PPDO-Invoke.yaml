@@ -92,8 +92,7 @@ stages:
       displayName: 'Execute PPDO Command'
       inputs:
         targetType: 'inline'
-        script: |
-          git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"
+        script: |          
           ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
 
   
