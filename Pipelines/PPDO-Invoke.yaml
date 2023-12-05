@@ -93,6 +93,6 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          ${{parameters.InvokeCommand}}
+          ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
 
   
