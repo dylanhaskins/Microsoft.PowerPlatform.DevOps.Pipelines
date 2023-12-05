@@ -20,6 +20,9 @@ parameters:
 - name: Email
   type: string
   default: 'default'
+- name: UserName
+  type: string
+  default: 'default'  
 - name: Project
   type: string
 - name: Repo
@@ -88,6 +91,6 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          ${{parameters.InvokeCommand}} -Email ${{parameters.Email}} 
+          ${{parameters.InvokeCommand}} -Email ${{parameters.Email}} -UserName ${{parameters.UserName}}
 
   
