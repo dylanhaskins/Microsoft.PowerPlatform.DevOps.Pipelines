@@ -93,7 +93,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          Set-Location -Path 'Source'
+          Set-Location -Path '..\Source'
           git checkout origin/${{parameters.Branch}} --track          
           git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"     
           ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
