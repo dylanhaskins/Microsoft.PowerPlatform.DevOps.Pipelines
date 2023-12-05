@@ -92,7 +92,8 @@ stages:
       displayName: 'Execute PPDO Command'
       inputs:
         targetType: 'inline'
-        script: |          
+        script: |
+          $global:gitToken = $(System.AccessToken)        
           ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
 
   
