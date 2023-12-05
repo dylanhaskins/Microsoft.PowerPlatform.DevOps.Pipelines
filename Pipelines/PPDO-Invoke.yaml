@@ -93,6 +93,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
+          git -c http.extraheader="AUTHORIZATION: bearer $(System.AccessToken)"
           ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
 
   
