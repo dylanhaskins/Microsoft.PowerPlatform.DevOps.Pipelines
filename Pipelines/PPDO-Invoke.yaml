@@ -74,8 +74,8 @@ stages:
     - pwsh: |
         # Workaround for git Filename too long issue 
         git config --system core.longpaths true  
-        git config user.email '${{parameters.Email}}'
-        git config user.name '${{parameters.UserName}}'      
+        git config --global user.email '${{parameters.Email}}'
+        git config --global user.name '${{parameters.UserName}}'      
       displayName: "Configuring core.longpaths true"     
 
     # Checkout Pipelines
