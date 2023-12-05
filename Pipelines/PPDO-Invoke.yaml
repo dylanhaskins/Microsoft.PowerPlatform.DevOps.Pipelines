@@ -73,7 +73,9 @@ stages:
 
     - pwsh: |
         # Workaround for git Filename too long issue 
-        git config --system core.longpaths true        
+        git config --system core.longpaths true  
+        git config user.email '${{parameters.Email}}'
+        git config user.name '${{parameters.UserName}}'      
       displayName: "Configuring core.longpaths true"     
 
     # Checkout Pipelines
@@ -91,6 +93,6 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          ${{parameters.InvokeCommand}} -Email ${{parameters.Email}} -UserName ${{parameters.UserName}}
+          ${{parameters.InvokeCommand}}
 
   
