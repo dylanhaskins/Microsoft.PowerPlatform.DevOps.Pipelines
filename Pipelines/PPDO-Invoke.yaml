@@ -42,7 +42,7 @@ pr: none
 name: ppdo-${{parameters.InvokeCommand}}-execute-command
 
 variables:
- ${{ if ne(parameters.VariableGroup, 'NA') }}:
+- ${{ if ne(parameters.VariableGroup, 'NA') }}:
   - group: ${{parameters.VariableGroup}}
 
 stages:
