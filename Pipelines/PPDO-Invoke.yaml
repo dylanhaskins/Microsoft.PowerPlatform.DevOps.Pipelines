@@ -93,7 +93,7 @@ stages:
       inputs:
         targetType: 'inline'
         script: |
-          $global:gitToken = $(System.AccessToken)        
+          $gitToken = $(System.AccessToken)        
           ${{parameters.InvokeCommand}} -Branch ${{parameters.Branch}} 
 
   
