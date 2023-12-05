@@ -35,13 +35,14 @@ parameters:
   default: "windows-latest"
 - name: VariableGroup
   type: string
-  default: "ppdo-development-variable-group"  
+  default: 'NA'  
 trigger: none
 pr: none
 
 name: ppdo-${{parameters.InvokeCommand}}-execute-command
 
 variables:
+ ${{ if ne(parameters.VariableGroup, 'NA')) }}:
   - group: ${{parameters.VariableGroup}}
 
 stages:
